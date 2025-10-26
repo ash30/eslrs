@@ -2,7 +2,7 @@
 //   # Run with info-level tracing
 //   RUST_LOG=info cargo run --example inbound
 
-use eslrs::{Command, ESLError, EventBuilder, event::EventExt};
+use eslrs::{Command, ESLError, EventBuilder, event::EventArg, event::EventExt};
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 
 #[tokio::main]
@@ -56,9 +56,7 @@ async fn main() -> Result<(), ESLError> {
         "profile" => "internal",
         "user" => 100; // last header ends with ';' !!!
 
-        serde_json::json!({
-            "content":"Ok"
-        })
+        "plain_text"
     );
     let _ = tx.send(Command::sendevent(e)).await;
 

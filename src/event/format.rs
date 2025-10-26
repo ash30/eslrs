@@ -40,17 +40,6 @@ impl EventFormat for PlainEvent {
     }
 }
 
-pub struct PlainText(String);
-
-impl EventFormat for PlainText {
-    const CONTENT_TYPE: &'static str = "text/plain";
-    type Error = FromUtf8Error;
-    fn try_from_raw(data: &Bytes) -> Result<Self, <Self as EventFormat>::Error> {
-        let t = String::from_utf8(data.to_vec())?;
-        Ok(PlainText(t))
-    }
-}
-
 // convenience methods to help compiler infer / readability
 macro_rules! type_event_helper {
     ($format:ident, $name:ident) => {

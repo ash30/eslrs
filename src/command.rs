@@ -1,4 +1,4 @@
-use crate::event::EventBuilder;
+use crate::{EventBuilder, event::Header};
 use std::borrow::Cow;
 
 #[derive(Debug)]
@@ -68,10 +68,7 @@ impl<'a> Command<'a> {
     pub fn bgapi<T: Into<std::borrow::Cow<'a, str>>>(s: T, event_id: T) -> Command<'a> {
         Command {
             cmd: "bgapi ",
-            args: EventBuilder!(s.into(),
-                "Job-UUID" => event_id.into()
-            )
-            .into(),
+            args: format!("{}\nJob-UUID: {}\n", s.into(), event_id).into(),
         }
     }
     pub fn execute<T: Into<std::borrow::Cow<'a, str>>>(
@@ -79,36 +76,64 @@ impl<'a> Command<'a> {
         app_name: T,
         args: T,
     ) -> Command<'a> {
-        let body: Cow<'a, str> = args.into();
-        Command {
-            cmd: "sendmsg ",
-            args: EventBuilder!(uuid.into(),
-                "execute-app-name" => app_name.into(),
-                "call-command" => "execute";
-                body
-            )
-            .into(),
-        }
+        Command::execute_with_config(uuid, app_name, args, Default::default())
     }
 
-    pub fn execute_async<T: Into<std::borrow::Cow<'a, str>>>(
+    pub fn execute_aync<T: Into<std::borrow::Cow<'a, str>>>(
         uuid: T,
         app_name: T,
         args: T,
-        event_id: T,
+        event_id: &'a str,
     ) -> Command<'a> {
-        let body: Cow<'a, str> = args.into();
+        Command::execute_with_config(
+            uuid,
+            app_name,
+            args,
+            SendMessageConfig {
+                _async: true,
+                event_lock: true,
+                event_id: Some(event_id),
+                ..Default::default()
+            },
+        )
+    }
+
+    pub fn execute_with_config<T: Into<std::borrow::Cow<'a, str>>>(
+        uuid: T,
+        app_name: T,
+        args: T,
+        config: SendMessageConfig<'a>,
+    ) -> Command<'a> {
+        let body = args.into();
+        let uuid: Cow<'a, str> = uuid.into();
+        let app_name: Cow<'a, str> = app_name.into();
+
+        let _async = Header!("async" => config._async);
+        let l = if config.event_lock {
+            Header!("event-lock" => 1)
+        } else {
+            format_args!("")
+        };
+        let id = config.event_id.unwrap_or("");
+        let event_id = if !id.is_empty() {
+            Header!("Job-UUID" => id)
+        } else {
+            format_args!("")
+        };
+
+        let _loop = Header!("loop" => config._loop);
+        let additional = format_args!("{}{}{}{}", _async, l, event_id, _loop);
+
+        let event = EventBuilder!(uuid,
+            "execute-app-name" => app_name,
+            "call-command" => "execute",
+            => additional;
+            body
+        );
+
         Command {
             cmd: "sendmsg ",
-            args: EventBuilder!(uuid.into(),
-                "Job-UUID" => event_id.into(),
-                "execute-app-name" => app_name.into(),
-                "call-command" => "execute",
-                "async" => true,
-                "event-lock" => true;
-                body
-            )
-            .into(),
+            args: event.into(),
         }
     }
 }
