@@ -2,6 +2,11 @@
 name = "eslrs"
 version = "0.1.0-rc"
 edition = "2024"
+repository = "https://github.com/ash30/eslrs"
+license = "Apache-2.0"
+description = "ESL library for FreeSWITCH™"
+keywords = ["esl", "freeswitch", "voip"]
+
 
 [dependencies]
 futures-util = { version = "0.3.31", features = ["sink"]}
