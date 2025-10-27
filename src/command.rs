@@ -29,11 +29,12 @@ where
 }
 
 macro_rules! create_command {
-    ($name:ident) => {
-        create_command!($name, stringify!($name));
+    ($(#[$meta:meta])* $name:ident) => {
+        create_command!($(#[$meta])* $name, stringify!($name));
     };
-    ($name:ident, $cmd:expr) => {
+    ($(#[$meta:meta])* $name:ident, $cmd:expr) => {
         impl<'a> Command<'a> {
+            $(#[$meta])*
             pub fn $name<T: Into<std::borrow::Cow<'a, str>>>(s: T) -> Command<'a> {
                 Command {
                     cmd: concat!($cmd, " "),
@@ -42,8 +43,9 @@ macro_rules! create_command {
             }
         }
     };
-    ($name:ident, $cmd:expr, no_args) => {
+    ($(#[$meta:meta])* $name:ident, $cmd:expr, no_args) => {
         impl<'a> Command<'a> {
+            $(#[$meta])*
             pub fn $name() -> Command<'a> {
                 Command {
                     cmd: concat!($cmd, " "),
