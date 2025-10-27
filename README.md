@@ -1,5 +1,10 @@
 eslrs is a pure Rust implementation of libesl, [FreeSWITCH™](https://freeswitch.com/)'s Event Socket Library.
 
+[![Crates.io Version](https://img.shields.io/crates/v/eslrs)](https://crates.io/crates/eslrs)
+
+-----
+
+
 # Features 
 - **Async**: Built on tokio for high-performance async I/O
 - **Inbound and Outbound**: Support for both ESL connection modes
