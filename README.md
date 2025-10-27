@@ -15,7 +15,7 @@ eslrs = { version = "0.1", features = ["json"] }
 
 # Inbound and Outbound APIs 
  ## Inbound 
- ```
+ ```rust
  use eslrs::{Inbound, Command, event::EventExt};
 
  #[tokio::main]
@@ -43,7 +43,7 @@ eslrs = { version = "0.1", features = ["json"] }
 
  ### Outbound 
 
- ```
+ ```rust
  use eslrs::{Outbound, ESLConfig, Command};
  use tokio::net::TcpListener;
 
@@ -70,25 +70,10 @@ eslrs = { version = "0.1", features = ["json"] }
  }
  ```
 
-# Event Formats 
-
-```
-let res = conn.send_recv(Command::events_json("all")).await?;
-let event = conn.recv()?;
-if event.is_json() {
-    dbg!(e.cast().json());
-}
-else {
-    dbg!(e.get_content_type(), e.bytes());
-}
-```
-
 # Logging and Tracing
 
-The main api of the esl connection have been instrumented to feed into either logging and tracing eco-systems.
-
+The main api of the esl connection have been instrumented to feed into either logging or tracing eco-systems.
 The tracing feature is enabled by default, logging requires manual inclusion.
-See tracing_example.rs within the repo for more details.
 
 ```logs
 2025-10-23T14:57:21.225778Z  INFO tracing_example: Connecting to FreeSWITCH at 0.0.0.0:8021
