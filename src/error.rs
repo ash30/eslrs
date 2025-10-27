@@ -26,6 +26,10 @@ impl ESLError {
     pub(crate) fn new(kind: ErrorKind) -> Self {
         Self { kind, cause: None }
     }
+
+    pub fn kind(&self) -> &ErrorKind {
+        &self.kind
+    }
 }
 
 impl Display for ESLError {
