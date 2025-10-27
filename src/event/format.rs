@@ -1,5 +1,5 @@
 use crate::event::Event;
-use std::{convert::Infallible, string::FromUtf8Error};
+use std::convert::Infallible;
 
 pub trait EventFormat: Sized {
     const CONTENT_TYPE: &str;

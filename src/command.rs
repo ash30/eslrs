@@ -56,18 +56,169 @@ macro_rules! create_command {
     };
 }
 
-create_command!(api);
-create_command!(sendevent);
-create_command!(filter);
-create_command!(filter_delete, "filter delete");
-create_command!(events, "event plain");
-create_command!(events_json, "event json");
-create_command!(events_xml, "event xml");
-create_command!(events_disable, "noevents", no_args);
-create_command!(disconnect, "exit", no_args);
+create_command!(
+    /// Executes an API command synchronously.
+    ///
+    /// # Arguments
+    ///
+    /// * `cmd` - freeswitch api command and args
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use eslrs::Command;
+    /// Command::api("status");
+    /// Command::api("version");
+    /// Command::api("global_getvar domain");
+    /// ```
+    api
+);
+
+create_command!(
+    /// Only events matching the filter will be received.
+    /// Additive if called multiple times.
+    ///
+    /// # Arguments
+    ///
+    /// * `filter` - \<EventHeader\> \<ValueToFilter\>
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use eslrs::Command;
+    /// // Only receive events for a specific channel UUID
+    /// Command::filter("Unique-ID abc123");
+    ///
+    /// // Filter by event name
+    /// Command::filter("Event-Name CHANNEL_HANGUP");
+    /// ```
+    filter);
+
+create_command!(
+    /// Removes a previously set event filter.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use eslrs::Command;
+    /// Command::filter_delete("Unique-ID abc123");
+    /// ```
+    filter_delete, "filter delete");
+
+create_command!(
+    /// Subscribes to events in Plain format.
+    ///
+    /// # Arguments
+    ///
+    /// * `events` - Space-separated event names or "all" for all events
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use eslrs::Command;
+    ///
+    /// // Subscribe to events in json format
+    /// Command::events("all");
+    ///
+    /// // Subscribe to specific events
+    /// Command::events("CHANNEL_CREATE CHANNEL_DESTROY");
+    /// ```
+
+    events, "event plain");
+
+create_command!(
+    /// Sends a custom event to FreeSWITCH.
+    ///
+    /// Use with the `EventBuilder!` macro to construct event data.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use eslrs::{Command, EventBuilder, Inbound};
+    /// let event = EventBuilder!(
+    ///     "CUSTOM",
+    ///     "Event-Subclass" => "myapp::event",
+    ///     "Custom-Header" => "value";
+    ///
+    ///     "Event body content"
+    /// );
+    ///
+    /// Command::sendevent(event);
+    /// ```
+sendevent);
+
+create_command!(
+    /// Subscribes to events in JSON format.
+    ///
+    /// # Arguments
+    ///
+    /// * `events` - Space-separated event names or "all" for all events
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use eslrs::Command;
+    ///
+    /// // Subscribe to events in json format
+    /// Command::events_json("all");
+    ///
+    /// // Subscribe to specific events
+    /// Command::events_json("CHANNEL_CREATE CHANNEL_DESTROY");
+    /// ```
+    events_json, "event json");
+
+// TODO: impl!
+//create_command!(events_xml, "event xml");
+
+create_command!(
+    /// Disables all event subscriptions.
+    events_disable, "noevents", no_args);
+
+create_command!(
+    /// Disconnects from FreeSWITCH.
+    disconnect, "exit", no_args);
+
+#[derive(Debug, Clone)]
+pub struct SendMessageConfig<'a> {
+    _async: bool,
+    event_lock: bool,
+    event_id: Option<&'a str>,
+    _loop: usize,
+}
+
+impl<'a> Default for SendMessageConfig<'a> {
+    fn default() -> Self {
+        Self {
+            _async: false,
+            event_lock: false,
+            event_id: None,
+            _loop: 1,
+        }
+    }
+}
 
 impl<'a> Command<'a> {
-    pub fn bgapi<T: Into<std::borrow::Cow<'a, str>>>(s: T, event_id: T) -> Command<'a> {
+    /// Executes an API command asynchronously in the background.
+    ///
+    /// Returns immediately with a Job-UUID. The result is delivered
+    /// as a BACKGROUND_JOB event.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// use eslrs::{Command, Inbound, event::EventExt};
+    ///
+    /// let job_uuid = "unique-job-id";
+    /// Command::bgapi("status", job_uuid);
+    ///
+    /// // Later, receive the BACKGROUND_JOB event
+    /// if let Some(uuid) = event.get_header("Job-UUID") {
+    ///     if uuid == job_uuid {
+    ///         // This is our result
+    ///     }
+    /// }
+    /// ```
+    pub fn bgapi<T: Into<std::borrow::Cow<'a, str>>>(s: T, event_id: &'a str) -> Command<'a> {
         Command {
             cmd: "bgapi ",
             args: format!("{}\nJob-UUID: {}\n", s.into(), event_id).into(),
