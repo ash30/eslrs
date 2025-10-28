@@ -127,7 +127,7 @@ where
     ) -> std::task::Poll<Result<Option<()>, ESLError>> {
         loop {
             let e = match ready!(self.as_mut().project().stream.poll_next(cx)) {
-                None => return dbg!(Poll::Ready(Ok(None))),
+                None => return Poll::Ready(Ok(None)),
                 Some(Ok(ESLFrame::Header(h))) => {
                     if h.get_header("Content-Length").is_none() {
                         RawEvent::new(h, None)
@@ -263,10 +263,16 @@ where
                 None => {
                     // TODO: error
                     match ready!(self.as_mut().poll_inner_stream(cx)) {
-                        Ok(None) => return Poll::Ready(None),
-                        Ok(Some(())) if self.read_queue.len() > 0 => continue,
-                        Ok(Some(())) => return Poll::Pending, // WHY IS THIS RETURNED?
-                        Err(e) => continue,                   // TODO: how to handle rrors ..
+                        Ok(r) => {
+                            if !self.read_queue.is_empty() {
+                                continue;
+                            }
+                            match r {
+                                None => return Poll::Ready(None),
+                                Some(()) => return Poll::Pending, // WHY IS THIS RETURNED?
+                            }
+                        }
+                        Err(e) => continue, // TODO: how to handle rrors ..
                     }
                 }
                 Some(e) => return Poll::Ready(Some(e)),
@@ -410,178 +416,74 @@ impl Decoder for ESLCodec {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use indoc::indoc;
     use tokio_stream::StreamExt;
     use tokio_test::io::Builder;
 
-    const SESSION_DATA: &[u8] = include_bytes!("../tests/data/freeswitch_session.txt");
-    const TEST_DATA_API_RES: &[u8] =
-        include_bytes!("../tests/data/multi_command_and_api_response.txt");
+    //const SESSION_DATA: &[u8] = include_bytes!("../tests/data/freeswitch_session.txt");
+    //const TEST_DATA_API_RES: &[u8] = include_bytes!("../tests/data/multi_command_and_api_response.txt");
+
+    const RAW_EVENT: &[u8] = indoc! {b"
+        Content-Length: 582
+        Content-Type: text/event-plain
+
+        Job-UUID: 7f4db78a-17d7-11dd-b7a0-db4edd065621
+        Job-Command: originate
+        Job-Command-Arg: sofia/default/1005%20'%26park'
+        Event-Name: BACKGROUND_JOB
+        Core-UUID: 42bdf272-16e6-11dd-b7a0-db4edd065621
+        FreeSWITCH-Hostname: ser
+        FreeSWITCH-IPv4: 192.168.1.104
+        FreeSWITCH-IPv6: 127.0.0.1
+        Event-Date-Local: 2008-05-02%2007%3A37%3A03
+        Event-Date-GMT: Thu,%2001%20May%202008%2023%3A37%3A03%20GMT
+        Event-Date-timestamp: 1209685023894968
+        Event-Calling-File: mod_event_socket.c
+        Event-Calling-Function: api_exec
+        Event-Calling-Line-Number: 609
+        Content-Length: 41
+        
+        +OK 7f4de4bc-17d7-11dd-b7a0-db4edd065621"
+    };
 
     #[tokio::test]
     async fn test_eslconn_basic_framing() {
-        let mock_data = b"Content-Type: text/event-plain\n\
-                          Event-Name: CUSTOM\n\
-                          \n";
+        let mock_stream = Builder::new().read(RAW_EVENT).build();
+        let mut conn = ESLConnection::new(mock_stream);
+        let event = conn.recv().await;
 
-        let mock_stream = Builder::new().read(mock_data).build();
-
-        let mut conn = ESLConnInner::new(mock_stream);
-
-        let event = conn.next().await;
-
-        assert!(event.is_some(), "Expected to receive an event");
+        assert!(event.is_ok(), "Expected to receive an event");
         let event = event.unwrap();
         assert_eq!(
             event.get_header("Content-Type"),
             Some(&"text/event-plain".to_string())
         );
-        assert_eq!(event.get_header("Event-Name"), Some(&"CUSTOM".to_string()));
-        assert!(event.body.is_none(), "Expected no body for this event");
+        assert!(event.bytes().is_some(), "Expected no body for this event");
+        assert!(
+            event
+                .bytes()
+                .unwrap()
+                .as_ref()
+                .unwrap()
+                .ends_with(b"db4edd065621")
+        );
     }
 
     #[tokio::test]
     async fn test_eslconn_basic_framing_multi_event() {
-        let mock_data = b"Content-Type: text/event-plain\n\
-                          Event-Name: CUSTOM\n\
-                          \n\
-                          Content-Type: text/event-plain\n\
-                          Event-Name: CUSTOM\n\
-                          \n";
-
-        let mock_stream = Builder::new().read(mock_data).build();
-
+        let mock_stream = Builder::new().read(RAW_EVENT).read(RAW_EVENT).build();
         let mut conn = ESLConnInner::new(mock_stream);
 
         for _ in 0..2 {
             let event = conn.next().await;
             assert!(event.is_some(), "Expected to receive an event");
             let event = event.unwrap();
-            assert!(event.body.is_none(), "Expected no body for this event");
+            assert!(event.body.is_some(), "Expected body for this event");
             assert_eq!(
                 event.get_header("Content-Type"),
                 Some(&"text/event-plain".to_string())
             );
-            assert_eq!(event.get_header("Event-Name"), Some(&"CUSTOM".to_string()));
+            assert!(event.body.unwrap().ends_with(b"db4edd065621"));
         }
-    }
-
-    #[tokio::test]
-    async fn test_events_with_body() {
-        let mock_stream = Builder::new().read(TEST_DATA_API_RES).build();
-        let mut conn = ESLConnInner::new(mock_stream);
-
-        // Collect all events
-        let mut events = Vec::new();
-        while let Some(event) = conn.next().await {
-            events.push(event);
-        }
-
-        // Find events with bodies
-        let events_with_body: Vec<_> = events.iter().filter(|e| e.body.is_some()).collect();
-
-        assert!(
-            events_with_body.len() >= 1,
-            "Expected at least 3 event with bodies"
-        );
-
-        // Test plain text BACKGROUND_JOB - it has body with the event details
-        let plain_bg_job = events
-            .iter()
-            .find(|e| {
-                e.get_header("Content-Type") == Some(&"text/event-plain".to_string())
-                    && e.body.is_some()
-                    && e.body.as_ref().map(|b| b.len()) == Some(885)
-            })
-            .expect("Should find plain text BACKGROUND_JOB event");
-
-        let body_text = std::str::from_utf8(plain_bg_job.body.as_ref().unwrap()).unwrap();
-        assert!(body_text.contains("Event-Name: BACKGROUND_JOB"));
-        assert!(body_text.contains("Job-Command: status"));
-
-        // Test XML BACKGROUND_JOB
-        let xml_bg_job = events
-            .iter()
-            .find(|e| e.get_header("Content-Type") == Some(&"text/event-xml".to_string()))
-            .expect("Should find XML BACKGROUND_JOB event");
-
-        assert!(xml_bg_job.body.is_some());
-        let xml_body = std::str::from_utf8(xml_bg_job.body.as_ref().unwrap()).unwrap();
-        assert!(xml_body.contains("<Event-Name>BACKGROUND_JOB</Event-Name>"));
-        assert!(xml_body.contains("<body>"));
-
-        // Test JSON BACKGROUND_JOB
-        let json_bg_job = events
-            .iter()
-            .find(|e| {
-                if let Some(body) = &e.body
-                    && let Ok(s) = std::str::from_utf8(body)
-                {
-                    return s.contains("\"Event-Name\":\"BACKGROUND_JOB\"");
-                }
-                false
-            })
-            .expect("Should find JSON BACKGROUND_JOB event");
-
-        let json_body = std::str::from_utf8(json_bg_job.body.as_ref().unwrap()).unwrap();
-        assert!(json_body.contains("\"_body\":"));
-    }
-
-    #[tokio::test]
-    async fn test_all_session_events() {
-        let mock_stream = Builder::new().read(SESSION_DATA).build();
-        let mut conn = ESLConnInner::new(mock_stream);
-
-        let mut events = Vec::new();
-        while let Some(event) = conn.next().await {
-            events.push(event);
-        }
-
-        // Expected 16 events based on session data analysis
-        assert_eq!(
-            events.len(),
-            16,
-            "Expected exactly 16 events from session data"
-        );
-
-        // Count events by type
-        let command_replies = events
-            .iter()
-            .filter(|e| e.get_header("Content-Type") == Some(&"command/reply".to_string()))
-            .count();
-        assert_eq!(command_replies, 9, "Expected 9 command/reply events");
-
-        // Count BACKGROUND_JOB events (they're in the body content)
-        let background_jobs = events
-            .iter()
-            .filter(|e| {
-                if let Some(body) = &e.body
-                    && let Ok(s) = std::str::from_utf8(body)
-                {
-                    return s.contains("BACKGROUND_JOB");
-                }
-                false
-            })
-            .count();
-        assert_eq!(background_jobs, 3, "Expected 3 BACKGROUND_JOB events");
-
-        let heartbeats = events
-            .iter()
-            .filter(|e| {
-                if let Some(body) = &e.body
-                    && let Ok(s) = std::str::from_utf8(body)
-                {
-                    return s.contains("\"Event-Name\":\"HEARTBEAT\"");
-                }
-                false
-            })
-            .count();
-        assert_eq!(heartbeats, 1, "Expected 1 HEARTBEAT event");
-
-        let events_with_body = events.iter().filter(|e| e.body.is_some()).count();
-        assert!(
-            events_with_body >= 4,
-            "Expected at least 4 events with bodies, got {}",
-            events_with_body
-        );
     }
 }

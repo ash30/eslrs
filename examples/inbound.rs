@@ -2,7 +2,7 @@
 //   # Run with info-level tracing
 //   RUST_LOG=info cargo run --example inbound
 
-use eslrs::{Command, ESLError, EventBuilder, event::EventArg, event::EventExt};
+use eslrs::{Command, ESLError, EventBuilder, event::EventExt};
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 
 #[tokio::main]

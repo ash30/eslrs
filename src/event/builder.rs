@@ -1,5 +1,3 @@
-use std::{borrow::Cow, fmt::Arguments};
-
 /// Creates an event string to send over esl connection.
 ///
 /// # Examples
@@ -40,13 +38,13 @@ use std::{borrow::Cow, fmt::Arguments};
 #[macro_export]
 macro_rules! EventBuilder {
     ($name:expr,$($k:expr=>$v:expr),* $(,)?) => {
-        format!("{}\n{}\n",$name, Header!($($k => $v),*))
+        format!("{}\n{}\n",$name, $crate::event::Header!($($k => $v),*))
     };
     ($name:expr, $($k:expr=>$v:expr),* $(,)? $( =>$rest:expr)?;$body:expr $(,$content:expr)?) => {
         format!(
             "{}\n{}{}\n{}",
             $name,
-            Header!(
+            $crate::event::Header!(
                 $($k => $v),*,
                 "content-length" => $body.len(),
                 "content-type" => $crate::EventBuilder!(@content $($content)?)
@@ -84,4 +82,5 @@ macro_rules! Header {
     };
 }
 
-pub(crate) use Header;
+pub use EventBuilder;
+pub use Header;
