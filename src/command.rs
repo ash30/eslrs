@@ -224,20 +224,26 @@ impl<'a> Command<'a> {
             args: format!("{}\nJob-UUID: {}\n", s.into(), event_id).into(),
         }
     }
-    pub fn execute<T: Into<std::borrow::Cow<'a, str>>>(
-        uuid: T,
-        app_name: T,
-        args: T,
-    ) -> Command<'a> {
+    pub fn execute<T1, T2, T3>(uuid: T1, app_name: T2, args: T3) -> Command<'a>
+    where
+        T1: Into<std::borrow::Cow<'a, str>>,
+        T2: Into<std::borrow::Cow<'a, str>>,
+        T3: Into<std::borrow::Cow<'a, str>>,
+    {
         Command::execute_with_config(uuid, app_name, args, Default::default())
     }
 
-    pub fn execute_aync<T: Into<std::borrow::Cow<'a, str>>>(
-        uuid: T,
-        app_name: T,
-        args: T,
+    pub fn execute_aync<T1, T2, T3>(
+        uuid: T1,
+        app_name: T2,
+        args: T3,
         event_id: &'a str,
-    ) -> Command<'a> {
+    ) -> Command<'a>
+    where
+        T1: Into<std::borrow::Cow<'a, str>>,
+        T2: Into<std::borrow::Cow<'a, str>>,
+        T3: Into<std::borrow::Cow<'a, str>>,
+    {
         Command::execute_with_config(
             uuid,
             app_name,
@@ -251,12 +257,17 @@ impl<'a> Command<'a> {
         )
     }
 
-    pub fn execute_with_config<T: Into<std::borrow::Cow<'a, str>>>(
-        uuid: T,
-        app_name: T,
-        args: T,
+    pub fn execute_with_config<T1, T2, T3>(
+        uuid: T1,
+        app_name: T2,
+        args: T3,
         config: SendMessageConfig<'a>,
-    ) -> Command<'a> {
+    ) -> Command<'a>
+    where
+        T1: Into<std::borrow::Cow<'a, str>>,
+        T2: Into<std::borrow::Cow<'a, str>>,
+        T3: Into<std::borrow::Cow<'a, str>>,
+    {
         let body = args.into();
         let uuid: Cow<'a, str> = uuid.into();
         let app_name: Cow<'a, str> = app_name.into();

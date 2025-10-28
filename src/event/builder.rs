@@ -2,6 +2,8 @@
 ///
 /// # Examples
 /// ```
+/// use eslrs::EventBuilder;
+///
 /// // EventBuilder will set content-type and length
 /// // headers for any suitable EventFormat
 /// let e = EventBuilder!(

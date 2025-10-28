@@ -19,8 +19,8 @@ eslrs = { version = "0.1", features = ["json"] }
 ```
 
 # Inbound and Outbound APIs 
- ## Inbound 
- ```rust
+ ## Inbound
+ ```rust,no_run
  use eslrs::{Inbound, Command, event::EventExt};
 
  #[tokio::main]
@@ -39,17 +39,18 @@ eslrs = { version = "0.1", features = ["json"] }
      loop {
          let event = conn.recv().await?;
          if event.is_json() {
-             let json = event.cast().json();
+             let casted = event.cast();
+             let json = casted.json();
              println!("Event: {:?}", json);
          }
      }
  }
  ```
 
- ### Outbound 
+ ### Outbound
 
- ```rust
- use eslrs::{Outbound, ESLConfig, Command};
+ ```rust,no_run
+ use eslrs::{Outbound, ESLConfig, Command, event::EventExt};
  use tokio::net::TcpListener;
 
  #[tokio::main]
@@ -64,7 +65,7 @@ eslrs = { version = "0.1", features = ["json"] }
              let mut conn = Outbound::handshake(socket, config).await.unwrap();
 
              // Get call info
-             let info = conn.get_info();
+             let info = conn.get_info().clone();
              let uuid = info.get_header("Unique-ID").unwrap();
 
              // Control the call
