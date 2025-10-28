@@ -1,6 +1,7 @@
 eslrs is a pure Rust implementation of libesl, [FreeSWITCH™](https://freeswitch.com/)'s Event Socket Library.
 
 [![Crates.io Version](https://img.shields.io/crates/v/eslrs)](https://crates.io/crates/eslrs)
+[![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/ash30/eslrs/rust.yml)](https://github.com/ash30/eslrs/actions/workflows/rust.yml)
 
 -----
 
