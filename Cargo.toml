@@ -16,6 +16,7 @@ tokio-stream = "0.1.17"
 tokio-util = { version = "0.7.16", features = ["codec"] }
 tracing = { version = "0.1.41", optional = true }
 serde_json = { version = "1.0.145", optional = true }
+multimap = "0.10.1"
 
 [dev-dependencies]
 tokio-test = "0.4"
@@ -23,6 +24,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing = { version = "0.1.41"}
 env_logger = "0.11.8"
 log = "0.4.28"
+indoc = "2.0.7"
 
 [features]
 default = ["json", "tracing"]
