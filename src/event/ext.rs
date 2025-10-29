@@ -56,6 +56,7 @@ pub trait EventExt {
     /// }
     /// # }
     /// ```
+    #[cfg(feature = "json")]
     fn is_json(&self) -> bool {
         self.get_content_type()
             .map(|s| s.starts_with(Json::CONTENT_TYPE))
