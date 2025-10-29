@@ -15,7 +15,7 @@ use std::{collections::HashMap, fmt::Debug};
 
 type HeaderMap = HashMap<String, String>;
 
-pub struct Event<T: EventFormat> {
+pub struct Event<T: EventFormat = Bytes> {
     headers: HeaderMap,
     body: Option<LazyParseCell<T, T::Error>>,
 }
