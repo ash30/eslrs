@@ -1,17 +1,38 @@
 use crate::{EventBuilder, event::Header};
-use std::borrow::Cow;
+use std::{borrow::Cow, fmt::Display, ptr::write};
 
 #[derive(Debug)]
 pub struct Command<'a> {
-    pub(crate) cmd: &'a str,
+    pub(crate) cmd: &'static str,
     pub(crate) args: Cow<'a, str>,
+}
+
+impl<'a> Command<'a> {
+    // TODO: can we convert this to std::borrow::ToOwned?
+    pub fn to_owned(&self) -> Command<'static> {
+        let s = self.args.to_string();
+        let res: Command<'static> = Command {
+            cmd: self.cmd,
+            args: s.into(),
+        };
+        res
+    }
 }
 
 impl<'a> From<&'a str> for Command<'a> {
     fn from(value: &'a str) -> Self {
         Command {
-            cmd: value,
-            args: "".into(),
+            cmd: "",
+            args: value.into(),
+        }
+    }
+}
+
+impl<'a> From<String> for Command<'a> {
+    fn from(value: String) -> Self {
+        Command {
+            cmd: "",
+            args: value.into(),
         }
     }
 }
@@ -22,8 +43,8 @@ where
 {
     fn from(value: &'a T) -> Self {
         Command {
-            cmd: value.as_ref(),
-            args: "".into(),
+            cmd: "",
+            args: value.as_ref().into(),
         }
     }
 }
@@ -179,14 +200,14 @@ create_command!(
     disconnect, "exit", no_args);
 
 #[derive(Debug, Clone)]
-pub struct SendMessageConfig<'a> {
+pub struct SendMessageConfig<T> {
     _async: bool,
     event_lock: bool,
-    event_id: Option<&'a str>,
+    event_id: Option<T>,
     _loop: usize,
 }
 
-impl<'a> Default for SendMessageConfig<'a> {
+impl<T> Default for SendMessageConfig<T> {
     fn default() -> Self {
         Self {
             _async: false,
@@ -194,6 +215,24 @@ impl<'a> Default for SendMessageConfig<'a> {
             event_id: None,
             _loop: 1,
         }
+    }
+}
+impl<T> Display for SendMessageConfig<T>
+where
+    T: Display,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "async: {}", self._async)?;
+        if self.event_lock {
+            writeln!(f, "event-lock: {}", self.event_lock)?;
+        }
+        if self._loop > 1 {
+            writeln!(f, "loop: {}", self._loop)?
+        }
+        if self.event_id.is_some() {
+            writeln!(f, "Job-UUID: {}", self.event_id.as_ref().unwrap())?;
+        }
+        Ok(())
     }
 }
 
@@ -218,10 +257,14 @@ impl<'a> Command<'a> {
     ///     }
     /// }
     /// ```
-    pub fn bgapi<T: Into<std::borrow::Cow<'a, str>>>(s: T, event_id: &'a str) -> Command<'a> {
+    pub fn bgapi<T, U>(s: T, event_id: U) -> Command<'a>
+    where
+        T: Display,
+        U: Display,
+    {
         Command {
             cmd: "bgapi ",
-            args: format!("{}\nJob-UUID: {}\n", s.into(), event_id).into(),
+            args: format!("{}\nJob-UUID: {}\n", s, event_id).into(),
         }
     }
     pub fn execute<T1, T2, T3>(uuid: T1, app_name: T2, args: T3) -> Command<'a>
@@ -230,19 +273,21 @@ impl<'a> Command<'a> {
         T2: Into<std::borrow::Cow<'a, str>>,
         T3: Into<std::borrow::Cow<'a, str>>,
     {
-        Command::execute_with_config(uuid, app_name, args, Default::default())
+        let config: SendMessageConfig<String> = Default::default();
+        Command::execute_with_config(uuid, app_name, args, config)
     }
 
-    pub fn execute_aync<T1, T2, T3>(
+    pub fn execute_aync<T1, T2, T3, T4>(
         uuid: T1,
         app_name: T2,
         args: T3,
-        event_id: &'a str,
+        event_id: T4,
     ) -> Command<'a>
     where
         T1: Into<std::borrow::Cow<'a, str>>,
         T2: Into<std::borrow::Cow<'a, str>>,
         T3: Into<std::borrow::Cow<'a, str>>,
+        T4: Display,
     {
         Command::execute_with_config(
             uuid,
@@ -257,41 +302,26 @@ impl<'a> Command<'a> {
         )
     }
 
-    pub fn execute_with_config<T1, T2, T3>(
+    pub fn execute_with_config<T1, T2, T3, T4>(
         uuid: T1,
         app_name: T2,
         args: T3,
-        config: SendMessageConfig<'a>,
+        config: SendMessageConfig<T4>,
     ) -> Command<'a>
     where
         T1: Into<std::borrow::Cow<'a, str>>,
         T2: Into<std::borrow::Cow<'a, str>>,
         T3: Into<std::borrow::Cow<'a, str>>,
+        T4: Display,
     {
         let body = args.into();
         let uuid: Cow<'a, str> = uuid.into();
         let app_name: Cow<'a, str> = app_name.into();
 
-        let _async = Header!("async" => config._async);
-        let l = if config.event_lock {
-            Header!("event-lock" => 1)
-        } else {
-            format_args!("")
-        };
-        let id = config.event_id.unwrap_or("");
-        let event_id = if !id.is_empty() {
-            Header!("Job-UUID" => id)
-        } else {
-            format_args!("")
-        };
-
-        let _loop = Header!("loop" => config._loop);
-        let additional = format_args!("{}{}{}{}", _async, l, event_id, _loop);
-
         let event = EventBuilder!(uuid,
             "execute-app-name" => app_name,
             "call-command" => "execute",
-            => additional;
+            => config;
             body
         );
 
