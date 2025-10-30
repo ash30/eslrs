@@ -1,5 +1,5 @@
-use crate::{EventBuilder, event::Header};
-use std::{borrow::Cow, fmt::Display, ptr::write};
+use crate::EventBuilder;
+use std::{borrow::Cow, fmt::Display};
 
 #[derive(Debug)]
 pub struct Command<'a> {

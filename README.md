@@ -22,7 +22,7 @@ eslrs = { version = "0.1", features = ["json"] }
 # Inbound and Outbound APIs 
  ## Inbound
  ```rust,no_run
- use eslrs::{Inbound, Command, event::EventExt};
+ use eslrs::{Inbound, Command, event::JsonEvent};
 
  #[tokio::main]
  async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -39,9 +39,7 @@ eslrs = { version = "0.1", features = ["json"] }
      // Receive events
      loop {
          let event = conn.recv().await?;
-         if event.is_json() {
-             let casted = event.cast();
-             let json = casted.json();
+         if event.is_json() && let Ok(json) = JsonEvent::try_from(event){
              println!("Event: {:?}", json);
          }
      }
@@ -51,7 +49,7 @@ eslrs = { version = "0.1", features = ["json"] }
  ### Outbound
 
  ```rust,no_run
- use eslrs::{Outbound, ESLConfig, Command, event::EventExt};
+ use eslrs::{Outbound, ESLConfig, Command};
  use tokio::net::TcpListener;
 
  #[tokio::main]

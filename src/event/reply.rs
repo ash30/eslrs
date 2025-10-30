@@ -1,15 +1,12 @@
-use super::EventExt;
-use super::RawEvent;
-use crate::ESLError;
+use tokio_util::bytes::Bytes;
+
+use crate::{
+    ESLError,
+    event::{RawEvent, delegate},
+};
 
 #[derive(Clone, Debug)]
 pub struct Reply(RawEvent);
-
-impl EventExt for Reply {
-    fn get_header(&self, header: &str) -> Option<&String> {
-        self.0.get_header(header)
-    }
-}
 
 impl TryFrom<RawEvent> for Reply {
     type Error = ESLError;
@@ -26,9 +23,14 @@ impl TryFrom<RawEvent> for Reply {
 }
 
 impl Reply {
+    delegate!(get_header (header: str) -> Option<&str> );
+    delegate!(get_body () -> Option<&Bytes> );
+    delegate!(get_content_type() -> Option<&str> );
+
     pub fn is_ok(&self) -> bool {
         match self.get_content_type() {
             Some("command/reply") => self
+                .0
                 .get_header("Reply-Text")
                 .map(|v| v.starts_with("+OK"))
                 .unwrap_or_default(),
@@ -37,5 +39,3 @@ impl Reply {
         }
     }
 }
-// ===================
-//

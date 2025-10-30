@@ -2,7 +2,7 @@
 //   # Run with info-level tracing
 //   RUST_LOG=info cargo run --example inbound
 
-use eslrs::{Command, ESLError, EventBuilder, event::EventExt};
+use eslrs::{Command, ESLError, EventBuilder, event::JsonEvent};
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 
 #[tokio::main]
@@ -24,7 +24,7 @@ async fn main() -> Result<(), ESLError> {
             tokio::select! {
                 event = conn.recv() => {
                     let Ok(event) = event else { break };
-                    if event.is_json() && let Some(Ok(json)) = event.cast().json() {
+                    if event.is_json() && let Ok(json) = JsonEvent::try_from(event) {
                         tracing::info!("JSON response: {}", serde_json::to_string_pretty(&json).unwrap_or_default());
                     };
                 }

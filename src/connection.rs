@@ -1,7 +1,7 @@
-use crate::event::EventExt;
+use crate::event::RawEvent;
 use crate::{
     Command, ESLError,
-    event::{Event, RawEvent, Reply},
+    event::{Event, Reply},
 };
 use futures_util::stream::Fuse;
 use futures_util::{Sink, SinkExt, StreamExt, ready};
@@ -54,7 +54,7 @@ where
     }
 
     #[cfg_attr(feature = "tracing", instrument(skip(self), ret, err))]
-    pub async fn recv(&mut self) -> Result<Event<Bytes>, ESLError> {
+    pub async fn recv(&mut self) -> Result<Event, ESLError> {
         if let Some(e) = self.inner.next().await {
             Ok(Event::from(e))
         } else {
@@ -160,7 +160,7 @@ where
                     // is only SendRecv
                     #[cfg(feature = "tracing")]
                     {
-                        let body = e.body.map(|b| {
+                        let body = e.get_body().map(|b| {
                             String::from_utf8(b.to_vec()).unwrap_or("parsing error".to_string())
                         });
                         warn!(body, "recv'd unexpected response/reply")
@@ -454,15 +454,14 @@ mod tests {
 
         assert!(event.is_ok(), "Expected to receive an event");
         let event = event.unwrap();
-        assert_eq!(
-            event.get_header("Content-Type"),
-            Some(&"text/event-plain".to_string())
+        assert_eq!(event.get_header("Content-Type"), Some("text/event-plain"));
+        assert!(
+            event.get_body().is_some(),
+            "Expected no body for this event"
         );
-        assert!(event.bytes().is_some(), "Expected no body for this event");
         assert!(
             event
-                .bytes()
-                .unwrap()
+                .get_body()
                 .as_ref()
                 .unwrap()
                 .ends_with(b"db4edd065621")
@@ -478,12 +477,9 @@ mod tests {
             let event = conn.next().await;
             assert!(event.is_some(), "Expected to receive an event");
             let event = event.unwrap();
-            assert!(event.body.is_some(), "Expected body for this event");
-            assert_eq!(
-                event.get_header("Content-Type"),
-                Some(&"text/event-plain".to_string())
-            );
-            assert!(event.body.unwrap().ends_with(b"db4edd065621"));
+            assert!(event.get_body().is_some(), "Expected body for this event");
+            assert_eq!(event.get_header("Content-Type"), Some("text/event-plain"));
+            assert!(event.get_body().unwrap().ends_with(b"db4edd065621"));
         }
     }
 }

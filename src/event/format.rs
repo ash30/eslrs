@@ -1,5 +1,7 @@
-use crate::event::Event;
+use crate::event::HeaderMap;
+use multimap::MultiMap;
 use std::convert::Infallible;
+pub use tokio_util::bytes::Bytes;
 
 pub trait EventFormat: Sized {
     const CONTENT_TYPE: &str;
@@ -9,10 +11,10 @@ pub trait EventFormat: Sized {
 }
 
 #[cfg(feature = "json")]
-pub type Json = serde_json::Value;
+pub type JsonEvent = serde_json::Value;
 
 #[cfg(feature = "json")]
-impl EventFormat for Json {
+impl EventFormat for JsonEvent {
     const CONTENT_TYPE: &str = "text/event-json";
     type Error = serde_json::Error;
     fn try_from_raw(data: &Bytes) -> Result<Self, <Self as EventFormat>::Error> {
@@ -20,28 +22,16 @@ impl EventFormat for Json {
     }
 }
 
-use multimap::MultiMap;
-pub use tokio_util::bytes::Bytes;
-
-impl EventFormat for Bytes {
-    const CONTENT_TYPE: &str = "";
-    type Error = Infallible;
-    fn try_from_raw(data: &Bytes) -> Result<Self, <Self as EventFormat>::Error> {
-        Ok(data.clone())
-    }
-}
-
-pub struct PlainEvent(MultiMap<Bytes, Bytes>, Option<Bytes>);
+#[derive(Clone, Debug)]
+pub struct PlainEvent(pub(crate) HeaderMap, pub(crate) Option<Bytes>);
 
 impl PlainEvent {
-    pub fn get_header(&self, k: &str) -> Option<&str> {
-        let b = Bytes::copy_from_slice(k.as_ref());
-        self.0
-            .get(&b)
-            .map(|b| str::from_utf8(b).unwrap_or("INVALID UTF8"))
-    }
     pub fn get_body(&self) -> Option<&Bytes> {
         self.1.as_ref()
+    }
+
+    pub fn get_header(&self, header: &str) -> Option<&str> {
+        self.0.get_header(header)
     }
 }
 
@@ -79,35 +69,11 @@ impl EventFormat for PlainEvent {
         let body = data.clone().split_off(last);
 
         Ok(PlainEvent(
-            map,
+            HeaderMap(map),
             if body.is_empty() { None } else { Some(body) },
         ))
     }
 }
-
-// convenience methods to help compiler infer / readability
-macro_rules! type_event_helper {
-    ($format:ident, $name:ident) => {
-        impl Event<$format> {
-            pub fn $name(&self) -> Option<&Result<$format, <$format as EventFormat>::Error>> {
-                self.body.as_ref().map(|v| v.get())
-            }
-        }
-    };
-    ($format:ident, $name:ident, $name2:ident) => {
-        type_event_helper!($format, $name);
-        impl Event<Bytes> {
-            pub fn $name2(self) -> Event<$format> {
-                self.cast()
-            }
-        }
-    };
-}
-
-type_event_helper!(Bytes, bytes);
-type_event_helper!(PlainEvent, plain, as_plain);
-#[cfg(feature = "json")]
-type_event_helper!(Json, json, as_json);
 
 #[cfg(test)]
 mod tests {

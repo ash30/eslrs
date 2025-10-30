@@ -196,7 +196,7 @@ where
     /// # Examples
     ///
     /// ```no_run
-    /// use eslrs::{Outbound, ESLConfig, event::EventExt};
+    /// use eslrs::{Outbound, ESLConfig};
     /// use tokio::net::TcpListener;
     ///
     /// # #[tokio::main(flavor = "current_thread")]
@@ -232,7 +232,7 @@ where
     /// # Examples
     ///
     /// ```no_run
-    /// use eslrs::{Outbound, ESLConfig, event::EventExt};
+    /// use eslrs::{Outbound, ESLConfig};
     /// # async fn example(conn: Outbound<tokio::net::TcpStream>) {
     /// let info = conn.get_info();
     /// if let Some(uuid) = info.get_header("Unique-ID") {

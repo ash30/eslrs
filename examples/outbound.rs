@@ -1,4 +1,4 @@
-use eslrs::{Command, ConnectError, ESLConfig, ESLError, EventBuilder, event::EventExt};
+use eslrs::{Command, ConnectError, ESLConfig, ESLError};
 use tokio::net::TcpListener;
 
 #[tokio::main]
