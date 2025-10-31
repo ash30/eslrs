@@ -65,7 +65,7 @@ impl Display for ConnectError {
     }
 }
 
-pub struct Inbound<T>(ESLConnection<T>);
+pub struct Inbound<T = TcpStream>(ESLConnection<T>);
 
 impl Inbound<TcpStream> {
     /// Connects to a FreeSWITCH Event Socket and authenticates.
@@ -178,7 +178,7 @@ impl<T> DerefMut for Inbound<T> {
 
 // =============
 
-pub struct Outbound<T> {
+pub struct Outbound<T = TcpStream> {
     conn: ESLConnection<T>,
     info: Reply,
 }
