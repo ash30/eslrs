@@ -27,10 +27,13 @@ impl Default for ESLConfig {
     }
 }
 
-impl From<&str> for ESLConfig {
-    fn from(value: &str) -> Self {
+impl<T> From<T> for ESLConfig
+where
+    T: Into<String>,
+{
+    fn from(value: T) -> Self {
         Self {
-            password: value.to_string(),
+            password: value.into(),
             ..Default::default()
         }
     }
